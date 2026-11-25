@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Incidencias del centro</title>
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+  <header class="cabecera">
+    <h1>Incidencias del centro</h1>
+    <div id="sesion" class="sesion oculto">
+      <span id="usuario-nombre"></span>
+      <span id="usuario-rol" class="etiqueta"></span>
+      <button id="cerrar-sesion" type="button">Cerrar sesión</button>
+    </div>
+  </header>
+
+  <div id="mensaje" class="mensaje oculto" role="status"></div>
+
+  <!-- ACCESO: login y registro -->
+  <main id="acceso">
+    <section id="panel-login" class="panel acceso">
+      <h2>Iniciar sesión</h2>
+      <form id="form-login" class="form-acceso">
+        <label>Email
+          <input name="email" type="email" autocomplete="username" required>
+        </label>
+        <label>Contraseña
+          <input name="password" type="password" autocomplete="current-password" required>
+        </label>
+        <button type="submit" class="primario">Entrar</button>
+      </form>
+      <p>¿No tienes cuenta? <a href="#registro" id="ir-registro">Regístrate</a></p>
+    </section>
+
+    <section id="panel-registro" class="panel acceso oculto">
+      <h2>Crear cuenta</h2>
+      <form id="form-registro" class="form-acceso">
+        <label>Nombre
+          <input name="nombre" autocomplete="name" maxlength="60" required>
+        </label>
+        <label>Email
+          <input name="email" type="email" autocomplete="email" required>
+        </label>
+        <label>Contraseña
+          <input name="password" type="password" autocomplete="new-password" minlength="8" required>
+        </label>
+        <button type="submit" class="primario">Registrarme</button>
+      </form>
+      <p>Todas las cuentas nuevas se crean con el rol <strong>ROLE_USER</strong>.</p>
+      <p>¿Ya tienes cuenta? <a href="#login" id="ir-login">Inicia sesión</a></p>
+    </section>
+  </main>
+
+  <!-- APLICACIÓN -->
+  <main id="aplicacion" class="oculto">
+    <section class="panel">
+      <div class="barra">
+        <h2 id="titulo-incidencias">Incidencias</h2>
+        <button id="nueva-incidencia" class="primario" type="button">Nueva incidencia</button>
+      </div>
+      <p id="ayuda-listado" class="ayuda"></p>
+      <table>
+        <thead>
+          <tr>
+            <th>Id</th>
+            <th>Título</th>
+            <th>Estado</th>
+            <th>Autor</th>
+            <th>Fecha de creación</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="tabla-incidencias"></tbody>
+      </table>
+      <p id="sin-incidencias" class="ayuda oculto">No hay incidencias para mostrar.</p>
+    </section>
+
+    <section id="panel-usuarios" class="panel oculto">
+      <div class="barra">
+        <h2>Usuarios</h2>
+        <button id="recargar-usuarios" type="button">Actualizar</button>
+      </div>
+      <p class="ayuda">Solo un administrador puede consultar los usuarios y cambiar sus roles.</p>
+      <table>
+        <thead>
+          <tr>
+            <th>Id</th>
+            <th>Nombre</th>
+            <th>Email</th>
+            <th>Rol actual</th>
+            <th>Cambiar rol</th>
+          </tr>
+        </thead>
+        <tbody id="tabla-usuarios"></tbody>
+      </table>
+    </section>
+  </main>
+
+  <!-- Diálogo para crear una incidencia -->
+  <dialog id="dialogo-crear">
+    <form id="form-incidencia" method="dialog">
+      <h2>Nueva incidencia</h2>
+      <label>Título
+        <input name="titulo" maxlength="120" required>
+      </label>
+      <label>Descripción
+        <textarea name="descripcion" rows="4" maxlength="1000" required></textarea>
+      </label>
+      <p class="ayuda">El autor se toma del token: no se puede elegir desde aquí.</p>
+      <div class="acciones">
+        <button type="button" id="cancelar-crear">Cancelar</button>
+        <button type="submit" class="primario">Crear incidencia</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- Diálogo con el detalle de una incidencia -->
+  <dialog id="dialogo-detalle">
+    <h2 id="detalle-titulo"></h2>
+    <dl class="detalle">
+      <dt>Estado</dt>
+      <dd id="detalle-estado"></dd>
+      <dt>Autor</dt>
+      <dd id="detalle-autor"></dd>
+      <dt>Fecha de creación</dt>
+      <dd id="detalle-creacion"></dd>
+      <dt>Última actualización</dt>
+      <dd id="detalle-actualizacion"></dd>
+    </dl>
+    <p id="detalle-descripcion" class="descripcion"></p>
+
+    <div id="detalle-acciones">
+      <label>Cambiar estado
+        <select id="detalle-nuevo-estado">
+          <option value="ABIERTA">ABIERTA</option>
+          <option value="EN_PROCESO">EN_PROCESO</option>
+          <option value="RESUELTA">RESUELTA</option>
+        </select>
+      </label>
+      <button type="button" id="detalle-guardar-estado" class="primario">Guardar estado</button>
+      <button type="button" id="detalle-eliminar" class="peligro">Eliminar incidencia</button>
+    </div>
+
+    <div class="acciones">
+      <button type="button" id="detalle-cerrar">Cerrar</button>
+    </div>
+  </dialog>
+
+  <script src="js/config.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
