@@ -2,7 +2,7 @@
   "info": {
     "_postman_id": "cbd7004a-fc0a-4b49-b757-c205458e2ff9",
     "name": "IncidenciasAPI",
-    "description": "Comprobaciones de la API de incidencias con JWT. Ejecuta primero la carpeta '01 - Auth' para registrar los usuarios y guardar los tokens; después asigna el primer ROLE_ADMIN con db/roles.sql y repite el login del admin.",
+    "description": "Comprobaciones de la API de incidencias con JWT. Ejecuta primero la carpeta '01 - Auth' para registrar los usuarios y guardar los tokens; después asigna el primer ROLE_ADMIN con db/roles.sql y repite el login del admin. Las peticiones de '03 - Usuarios' usan los ids 1 (Ana) y 3 (técnico) de una base de datos recién creada; si ya tienes datos, ajusta el id.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "item": [
