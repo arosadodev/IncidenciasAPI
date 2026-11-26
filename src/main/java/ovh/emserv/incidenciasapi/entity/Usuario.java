@@ -47,17 +47,11 @@ public class Usuario implements UserDetails {
     @Column(nullable = false)
     private Boolean activo;
 
-    /**
-     * Convierte el valor de "rol" en el permiso que entiende Spring Security.
-     */
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
         return List.of(new SimpleGrantedAuthority(rol));
     }
 
-    /**
-     * El nombre de usuario para Spring Security es el email.
-     */
     @Override
     public String getUsername() {
         return email;

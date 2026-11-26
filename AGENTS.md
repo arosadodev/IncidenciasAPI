@@ -23,8 +23,7 @@ tecnologías, la estructura, las convenciones y los límites de este repositorio
 El proyecto se desarrolló con **DeepSeek Harness**, un agente de programación
 integrado en **IntelliJ IDEA** mediante el plugin `dsh-idea` (no es un chat).
 El agente puede leer/escribir archivos, compilar, arrancar la aplicación y
-lanzar peticiones HTTP para comprobar los cambios. En el `README.md` están
-transcritos los prompts reales utilizados.
+lanzar peticiones HTTP para comprobar los cambios.
 
 ## 2. Restricciones sobre lo visto en clase
 
