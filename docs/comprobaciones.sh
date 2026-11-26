@@ -26,7 +26,8 @@ MYSQL_USER="${MYSQL_USER:-root}"
 MYSQL_PASSWORD="${MYSQL_PASSWORD:-1234}"
 MYSQL_DB="${MYSQL_DB:-incidencias}"
 JWT_SECRET="${JWT_SECRET:-clave-de-desarrollo-incidencias-cambiame-en-produccion-2026}"
-PASSWORD="${PASSWORD:-password123}"
+PASSWORD="${PASSWORD:-1234}"                       # contraseña de los usuarios de prueba (datos iniciales)
+PASSWORD_REGISTRO="${PASSWORD_REGISTRO:-password123}" # /auth/register exige 8 caracteres como mínimo
 
 ANA="ana@centro.es"
 LUIS="luis@centro.es"
@@ -58,7 +59,7 @@ http() { # metodo ruta [token] [cuerpo]  -> deja el cuerpo en LAST_BODY y el có
 }
 
 registrar() { # email nombre
-    http POST /auth/register "" "{\"email\":\"$1\",\"nombre\":\"$2\",\"password\":\"$PASSWORD\",\"rol\":\"ROLE_ADMIN\"}"
+    http POST /auth/register "" "{\"email\":\"$1\",\"nombre\":\"$2\",\"password\":\"$PASSWORD_REGISTRO\",\"rol\":\"ROLE_ADMIN\"}"
     if [[ "$LAST_CODE" == "201" ]]; then
         echo "  creado $1 ($LAST_BODY)"
     else

@@ -178,6 +178,14 @@ button.peligro:hover {
   font-size: 0.88rem;
 }
 
+.ayuda code {
+  padding: 0.05rem 0.3rem;
+  border: 1px solid var(--borde);
+  border-radius: 4px;
+  background: var(--gris);
+  font-size: 0.85em;
+}
+
 table {
   width: 100%;
   border-collapse: collapse;

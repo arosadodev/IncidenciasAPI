@@ -2,7 +2,7 @@
   "info": {
     "_postman_id": "cbd7004a-fc0a-4b49-b757-c205458e2ff9",
     "name": "IncidenciasAPI",
-    "description": "Comprobaciones de la API de incidencias con JWT. Ejecuta primero la carpeta '01 - Auth' para registrar los usuarios y guardar los tokens; después asigna el primer ROLE_ADMIN con db/roles.sql y repite el login del admin. Las peticiones de '03 - Usuarios' usan los ids 1 (Ana) y 3 (técnico) de una base de datos recién creada; si ya tienes datos, ajusta el id.",
+    "description": "Comprobaciones de la API de incidencias con JWT. La aplicación crea al arrancar los usuarios de prueba admin@centro.es, tecnico@centro.es, ana@centro.es y luis@centro.es con contraseña 1234, así que los POST /auth/register pueden devolver 409 si ya existen. Ejecuta la carpeta '01 - Auth' para guardar los tokens y después el resto de carpetas en orden.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "item": [
@@ -36,7 +36,7 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test(\"HTTP 201\", () => pm.response.to.have.status(201));"
+                  "pm.test(\"201 (usuario nuevo) o 409 (ya existe por los datos iniciales)\", () => pm.expect(pm.response.code).to.be.oneOf([201, 409]));"
                 ]
               }
             }
@@ -69,7 +69,7 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test(\"HTTP 201\", () => pm.response.to.have.status(201));"
+                  "pm.test(\"201 (usuario nuevo) o 409 (ya existe por los datos iniciales)\", () => pm.expect(pm.response.code).to.be.oneOf([201, 409]));"
                 ]
               }
             }
@@ -102,7 +102,7 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test(\"HTTP 201\", () => pm.response.to.have.status(201));"
+                  "pm.test(\"201 (usuario nuevo) o 409 (ya existe por los datos iniciales)\", () => pm.expect(pm.response.code).to.be.oneOf([201, 409]));"
                 ]
               }
             }
@@ -136,7 +136,7 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test(\"HTTP 201\", () => pm.response.to.have.status(201));"
+                  "pm.test(\"201 (usuario nuevo) o 409 (ya existe por los datos iniciales)\", () => pm.expect(pm.response.code).to.be.oneOf([201, 409]));"
                 ]
               }
             }
@@ -155,7 +155,7 @@
             "url": "{{baseUrl}}/auth/login",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"email\": \"ana@centro.es\",\n  \"password\": \"password123\"\n}",
+              "raw": "{\n  \"email\": \"ana@centro.es\",\n  \"password\": \"1234\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -189,7 +189,7 @@
             "url": "{{baseUrl}}/auth/login",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"email\": \"luis@centro.es\",\n  \"password\": \"password123\"\n}",
+              "raw": "{\n  \"email\": \"luis@centro.es\",\n  \"password\": \"1234\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -223,7 +223,7 @@
             "url": "{{baseUrl}}/auth/login",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"email\": \"tecnico@centro.es\",\n  \"password\": \"password123\"\n}",
+              "raw": "{\n  \"email\": \"tecnico@centro.es\",\n  \"password\": \"1234\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -257,7 +257,7 @@
             "url": "{{baseUrl}}/auth/login",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"email\": \"admin@centro.es\",\n  \"password\": \"password123\"\n}",
+              "raw": "{\n  \"email\": \"admin@centro.es\",\n  \"password\": \"1234\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -687,7 +687,13 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));"
+                  "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+                  "const usuarios = pm.response.json();",
+                  "const buscar = (email) => usuarios.find((u) => u.email === email);",
+                  "const tecnico = buscar(\"tecnico@centro.es\");",
+                  "const ana = buscar(\"ana@centro.es\");",
+                  "if (tecnico) { pm.collectionVariables.set(\"idTecnico\", tecnico.id); }",
+                  "if (ana) { pm.collectionVariables.set(\"idAna\", ana.id); }"
                 ]
               }
             }
@@ -731,7 +737,7 @@
                 "value": "application/json"
               }
             ],
-            "url": "{{baseUrl}}/usuarios/3/rol",
+            "url": "{{baseUrl}}/usuarios/{{idTecnico}}/rol",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"rol\": \"ROLE_TECNICO\"\n}",
@@ -768,7 +774,7 @@
                 "value": "application/json"
               }
             ],
-            "url": "{{baseUrl}}/usuarios/3/rol",
+            "url": "{{baseUrl}}/usuarios/{{idTecnico}}/rol",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"rol\": \"ROLE_DIOS\"\n}",
@@ -805,7 +811,7 @@
                 "value": "application/json"
               }
             ],
-            "url": "{{baseUrl}}/usuarios/1/rol",
+            "url": "{{baseUrl}}/usuarios/{{idAna}}/rol",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"rol\": \"ROLE_ADMIN\"\n}",
@@ -931,6 +937,14 @@
     },
     {
       "key": "idIncidenciaLuis",
+      "value": ""
+    },
+    {
+      "key": "idTecnico",
+      "value": ""
+    },
+    {
+      "key": "idAna",
       "value": ""
     }
   ]
