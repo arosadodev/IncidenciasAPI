@@ -483,6 +483,56 @@ Todo lo que ha generado lo he revisado y probado (las comprobaciones del
 apartado 7, las peticiones con Postman y las pruebas en el navegador); en el
 apartado 10 están los errores que aparecieron y cómo se corrigieron.
 
+### 9.3. Principales prompts utilizados
+
+Estos son los prompts que le he ido planteando a la herramienta, transcritos
+tal como los he usado (el resto han sido correcciones puntuales sobre estos).
+
+**Comentarios en el código**
+
+> Añade comentarios en el código (Javadoc en las clases y en los métodos
+> importantes) explicando qué valida `JwtService` POR QUE el `SecurityConfig`
+> protege cada ruta y dónde se se puede ver que una incidencia pertenece a al usuario que la
+> pide. Los quiero para poder explicar el backend en el vídeo, hazlos CORRECTAMENTE y no COMENTES de
+> forma REDUNDANTE.
+
+**Frontend y comunicación con el backend**
+
+> Ayúdame a HACER el frontend en HTML, CSS y JavaScript y
+> comunicalo con la API mandando en las peticiones protegidas 
+> con Autentication y mostrar por pantalla los
+> errores del backend (401, 403, etc)
+
+**Gestión de permisos por rol**
+
+> Explicame como repartir lso permisos por rol 
+> en el backend el estado de una incidencia solo lo puedan hacer TECNICO y ADMIN, 
+> borrar solo ADMIN y `/usuarios/**` solo ADMIN. Comprueba en el servicio que un
+> usuario solo puede ver sus incidencias y tambien los TECNICOS o ADMINS.
+
+**Commits**
+
+> Haz los 3 primeros commits iniciales.
+
+**Generar el README**
+
+> Genérame el `README.md` del proyecto, en el pon el resumen y funcionalidades, requisitos e
+> instalación, como ejecutar el backend y el frontend, endpoints con sus métodos
+> y permisos, herramienta de IA utilizada, prompts que he usado(luego guardas los prompts mas claros de ver), problemas
+> encontrados y decisiones técnicas. Sigue el estilo de un readmr pro, no cambies
+> la información pero si dejalo bonito.
+
+**Redactar los problemas que le cuento**
+
+> Te explico los problemas que me han ido saliendo y cómo los he resuelto. Los
+> tokens daban 401 porque el jjwt lo hacia con HS512 y se tenia que hacer con
+> HS256. El `open-in-view` de JPA daba un aviso al recompilar con la aplicación
+> arrancada salía un `NoClassDefFoundError`. Los errores de validación y los de
+> la API tenían forma distinta. Pásalos al README en el apartado de problemas
+> encontrados con las decisiones técnicas y el motivo de cada una, sin cambiar
+> realmente lo que te he contado, solo ponlo bonito, sigue el mismo estilo del resto
+> del readme
+
 ---
 
 ## 10. Problemas encontrados y decisiones técnicas
