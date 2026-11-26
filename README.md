@@ -626,7 +626,7 @@ IncidenciasAPI/
 
 | Elemento | Enlace |
 |---|---|
-| Repositorio GitHub | _pendiente de publicar_ |
+| Repositorio GitHub | _[https://github.com/arosadodev/IncidenciasAPI](https://github.com/arosadodev/IncidenciasAPI)_ |
 | Vídeo de YouTube (oculto) | [https://www.youtube.com/watch?v=rsymDhBa0A0](https://www.youtube.com/watch?v=rsymDhBa0A0) |
 
 El guion del vídeo (con los pasos y las respuestas a las tres preguntas) está en
