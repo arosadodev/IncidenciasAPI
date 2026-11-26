@@ -165,7 +165,8 @@ la base de datos:
 | `luis@centro.es` | `1234` | `ROLE_USER` |
 
 - La contraseña se guarda **ya cifrada**: en el código solo hay un hash BCrypt de
-  `1234` (comentado), nunca la contraseña en claro en la base de datos.
+  `1234`, con la contraseña anotada en un comentario; en la base de datos nunca
+  se guarda en claro.
 - El seed es idempotente: si el usuario no existe lo crea y, si existe,
   actualiza su rol, su estado y su contraseña, de modo que estos cuatro datos de
   prueba son siempre los mismos tras un reinicio. Cualquier cambio de rol que se
