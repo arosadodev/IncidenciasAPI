@@ -34,11 +34,14 @@ El proyecto debe poder explicarse con lo trabajado en el módulo. Por tanto:
   justificarlo en el README (qué hace, cómo se usa y por qué no se resuelve con
   lo ya conocido). En particular, no introduzcas frameworks de frontend
   (React, Vue, Angular), gestores de estado, ORMs distintos de Spring Data JPA
-  ni bases de datos embebidas para los flujos principales.
-- Se admiten las construcciones ya presentes en el proyecto aunque sean
-  específicas de Spring Security/Boot: `@EnableMethodSecurity` y `@PreAuthorize`,
-  `oauth2ResourceServer(...)`, `AuthenticationEntryPoint`,
-  `AccessDeniedHandler`, `JwtDecoder`, `JwtAuthenticationConverter`.
+  ni bases de datos embebidas.
+- **No añadas clases que no hagan falta**: este proyecto debe quedarse en lo
+  justo que pide el enunciado. Nada de excepciones propias, manejadores de
+  401/403 personalizados, clases de constantes ni DTO adicionales si se puede
+  resolver con lo que ya existe (por ejemplo, `Optional` + `ResponseEntity`).
+- Se admiten las construcciones ya presentes en el proyecto: `oauth2ResourceServer(...)`,
+  `JwtDecoder`, `JwtAuthenticationConverter`, reglas `hasRole`/`hasAnyRole` en
+  `SecurityConfig` y `AccessDeniedException` para los 403 de negocio.
 - Si añades una dependencia, actualiza `pom.xml` **y** el apartado de
   tecnologías del README.
 - No inventes comandos ni resultados de pruebas en la documentación.
@@ -47,12 +50,13 @@ El proyecto debe poder explicarse con lo trabajado en el módulo. Por tanto:
 
 ```
 src/main/java/ovh/emserv/incidenciasapi/
-├── config/       SecurityConfig, CorsConfig, RestAuthenticationEntryPoint (401),
-│                 RestAccessDeniedHandler (403)
+├── config/       SecurityConfig (rutas, JWT, BCrypt), CorsConfig
 ├── controller/   AuthController, IncidenciaController, UsuarioController
-├── DTO/          DTO de entrada (*Request) y de salida (*Response)
-├── entity/       Usuario (UserDetails), Incidencia, EstadoIncidencia, Roles
-├── exception/    Excepciones propias + GlobalExceptionHandler
+├── DTO/          UsuarioRequest, UsuarioResponse, LoginRequest,
+│                 IncidenciaRequest, IncidenciaResponse,
+│                 CambioEstadoRequest, CambioRolRequest
+├── entity/       Usuario (UserDetails), Incidencia, EstadoIncidencia
+├── exception/    GlobalExceptionHandler
 ├── repository/   UsuarioRepository, IncidenciaRepository
 ├── service/      AuthService, IncidenciaService, UsuarioService, JwtService,
 │                 CustomUserDetailsService
@@ -69,22 +73,22 @@ postman/          Colección de Postman de la API
 - Todo el código, los comentarios y los mensajes de la API **en español**.
 - Inyección de dependencias **por constructor**. Con Lombok, `@RequiredArgsConstructor`
   en servicios y controladores; sin `@Autowired` en atributos.
-- Lombok en entidades y DTO: `@Getter/@Setter/@Builder/@NoArgsConstructor/@AllArgsConstructor`
-  en entidades; `record` para los DTO de entrada y de salida.
+- Lombok en entidades (`@Getter/@Setter/@Builder/...`); `record` para los DTO.
 - Los controladores solo se ocupan de HTTP: validan el DTO, llaman al servicio
   y devuelven `ResponseEntity` cuando el código depende del resultado
-  (`201` al crear con `Location`, `204` al borrar, `200` al consultar).
-- La lógica de negocio (y las comprobaciones de permisos de negocio) va en
-  `service/`, nunca en el controlador. Los controladores no usan repositorios
-  directamente.
+  (`201` al crear con `Location`, `204` al borrar, `404` cuando el servicio
+  devuelve `Optional` vacío).
+- La lógica de negocio va en `service/`; los controladores no usan repositorios
+  directamente (salvo la comprobación de email repetido del registro, igual que
+  en `MatriculasSpring`).
 - Rutas en plural (`/incidencias`, `/usuarios`) y nombres de métodos en español
   (`crear`, `listar`, `obtener`, `cambiarEstado`, `eliminar`, `cambiarRol`).
-- Errores: `{ "estado": 404, "mensaje": "..." }` mediante `ErrorResponse`. Los
-  errores de `@Valid` se devuelven como mapa `campo: mensaje` con 400.
-  **No** añadas un `@ExceptionHandler(Exception.class)` genérico: capturaría
-  `AccessDeniedException` de `@PreAuthorize` y convertiría los 403 en 500.
-- `@Transactional` en los métodos del servicio que leen relaciones `LAZY` y
-  mapean a DTO (si no, `LazyInitializationException`).
+- Errores: el 401 y el 403 los genera Spring Security (sin cuerpo); el 400 de
+  validación devuelve un mapa `campo: mensaje` y el resto, `{"error": "..."}`
+  con 400/409. **No** añadas un `@ExceptionHandler(Exception.class)` genérico:
+  capturaría `AccessDeniedException` y convertiría los 403 en 500.
+- `@Transactional` en los servicios que leen relaciones `LAZY` y mapean a DTO
+  (si no, `LazyInitializationException`).
 
 ## 5. Reglas de seguridad que no se pueden romper
 
@@ -92,16 +96,17 @@ postman/          Colección de Postman de la API
    (`Authentication.getName()`, que es el `sub` del JWT). Nunca del cuerpo de la
    petición. `IncidenciaRequest` no tiene campo `autor` ni `estado`.
 2. **Un `ROLE_USER` solo puede ver sus incidencias**, tanto en `GET /incidencias`
-   como en `GET /incidencias/{id}`. La comprobación de propiedad debe estar en el
+   como en `GET /incidencias/{id}`. La comprobación de propiedad está en el
    backend (`IncidenciaService.exigirAcceso`), no solo en el frontend.
-3. **Los roles se validan contra `Roles.VALIDOS`**; cualquier otro valor
-   devuelve 400. El registro siempre asigna `ROLE_USER`.
-4. **Los permisos de administración** (`GET /usuarios`, `PATCH /usuarios/{id}/rol`)
-   exigen `ROLE_ADMIN` en `SecurityConfig`, con `@PreAuthorize` y, cuando aplica,
-   en el servicio (defensa en profundidad).
+3. **Los roles se validan en el backend** contra la lista blanca de
+   `UsuarioController.ROLES_ADMITIDOS`; cualquier otro valor devuelve 400. El
+   registro siempre asigna `ROLE_USER`.
+4. **Los permisos por rol están en `SecurityConfig`**: `PATCH /incidencias/*/estado`
+   exige TECNICO o ADMIN; `DELETE /incidencias/*` y `/usuarios/**` exigen ADMIN.
 5. **401 y 403 tienen significados distintos**: 401 = no autenticado o token no
-   válido (`RestAuthenticationEntryPoint`); 403 = autenticado sin permiso
-   (`RestAccessDeniedHandler` o `AccesoProhibidoException`).
+   válido (lo genera Spring Security antes de llegar al controlador); 403 =
+   autenticado sin permiso (reglas de `SecurityConfig`) o pidiendo una
+   incidencia ajena (`AccessDeniedException`).
 6. **La clave JWT se lee de `app.jwt.secret`** (≥ 32 bytes) y se firma **HS256
    explícito**; el decodificador valida firma, emisor y caducidad. No generes la
    clave de forma aleatoria al arrancar: los tokens deben sobrevivir a un
@@ -138,7 +143,7 @@ postman/          Colección de Postman de la API
 ## 8. Git y documentación
 
 - Commits pequeños y temáticos con prefijo: `chore:`, `feat(...)`, `fix:`,
-  `docs:`, `test:`. Mensajes en español, en imperativo.
+  `docs:`. Mensajes en español, en imperativo.
 - Antes de hacer commit, revisa `git status` para no subir `target/`,
   `.localbuild/`, `.idea/` ni archivos de configuración locales.
 - Mantén actualizados `README.md` (endpoints, permisos, prompts reales,

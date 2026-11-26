@@ -62,15 +62,14 @@ Además:
 No se han añadido tecnologías ajenas a lo visto en clase. Las únicas
 construcciones que conviene saber leer, porque son propias de esta tarea, son:
 
-- `@EnableMethodSecurity` + `@PreAuthorize`: forma de declarar permisos por rol
-  dentro del controlador (`@PreAuthorize("hasRole('ADMIN')")`).
 - `oauth2ResourceServer(...).jwt(...)`: filtro de Spring Security que lee el
   `Authorization: Bearer`, valida el token y construye el objeto `Authentication`.
-- `AuthenticationEntryPoint` / `AccessDeniedHandler`: puntos donde se genera el
-  **401** y el **403** con un cuerpo JSON propio.
-- `tools.jackson.databind.ObjectMapper` (Jackson 3): en Spring Boot 4 el
-  paquete cambió de `com.fasterxml.*` a `tools.jackson.*`. Solo se usa para
-  escribir el JSON de las respuestas de seguridad.
+- `AuthenticationEntryPoint` / `AccessDeniedHandler`: puntos del filtro de
+  Spring Security donde se generan el **401** y el **403**. Se usan los de por
+  defecto (no hay clases propias), igual que en `MatriculasSpring`.
+- `AccessDeniedException` (`org.springframework.security.access`): excepción que
+  lanza el servicio cuando un `ROLE_USER` pide una incidencia ajena; Spring
+  Security la convierte en 403.
 
 ---
 
@@ -104,7 +103,6 @@ spring.jpa.database-platform=org.hibernate.dialect.MySQLDialect
 
 app.jwt.secret=${JWT_SECRET:clave-de-desarrollo-incidencias-cambiame-en-produccion-2026}
 app.jwt.expiration-ms=${JWT_EXPIRATION_MS:7200000}
-app.jwt.issuer=App-Incidencias
 ```
 
 | Propiedad | Significado |
@@ -113,7 +111,6 @@ app.jwt.issuer=App-Incidencias
 | `DB_URL`, `DB_USER`, `DB_PASSWORD` | Variables de entorno para no tener que editar el archivo. |
 | `app.jwt.secret` | Clave de firma (HS256). **Al menos 32 bytes**; si no, la aplicación falla al arrancar con un mensaje claro. |
 | `app.jwt.expiration-ms` | Caducidad del token. Por defecto 2 horas (7 200 000 ms). |
-| `app.jwt.issuer` | Emisor incluido en el token y validado al decodificarlo. |
 
 > La clave de firma viene con un valor de desarrollo para que el proyecto
 > arranque sin configurar nada. En un entorno real se pasa por la variable
@@ -202,7 +199,7 @@ JWT devuelto por el login.
 curl -X POST http://localhost:8080/auth/register -H 'Content-Type: application/json' \
   -d '{"email":"ana@centro.es","nombre":"Ana","password":"password123","rol":"ROLE_ADMIN"}'
 
-# Login: devuelve {"token": "...", "tipo": "Bearer", "expiraEnSegundos": 7200, "usuario": {...}}
+# Login: devuelve {"token": "eyJhbGciOiJIUzI1NiJ9..."}
 TOKEN=$(curl -s -X POST http://localhost:8080/auth/login -H 'Content-Type: application/json' \
   -d '{"email":"ana@centro.es","password":"password123"}' | jq -r .token)
 
@@ -229,12 +226,20 @@ curl -X PATCH http://localhost:8080/usuarios/3/rol -H "Authorization: Bearer $TO
 
 ### Respuestas de error
 
+El 401 y el 403 los genera Spring Security y llegan **sin cuerpo** (el 401 con
+la cabecera `WWW-Authenticate`); el frontend los muestra a partir del código de
+estado. El resto de errores sí llevan un JSON con el mensaje:
+
+```
+HTTP/1.1 401        sin token, token inválido, caducado o de otro emisor
+HTTP/1.1 403        autenticado pero sin rol suficiente o pidiendo una incidencia ajena
+```
+
 ```json
-{ "estado": 401, "mensaje": "No autenticado: envía un token JWT válido en la cabecera Authorization" }
-{ "estado": 403, "mensaje": "No tienes permisos para realizar esta operación" }
-{ "estado": 403, "mensaje": "No puedes consultar una incidencia de otro usuario" }
-{ "estado": 400, "mensaje": "Rol no válido. Valores admitidos: ROLE_ADMIN, ROLE_TECNICO, ROLE_USER" }
-{ "titulo": "El título es obligatorio" }
+{ "error": "Credenciales incorrectas" }                                              (401 del login)
+{ "error": "El email ya está registrado" }                                            (409)
+{ "error": "Rol no válido. Valores admitidos: ROLE_USER, ROLE_TECNICO, ROLE_ADMIN" }  (400)
+{ "titulo": "El título es obligatorio" }                                              (400 de @Valid)
 ```
 
 ---
@@ -243,9 +248,9 @@ curl -X PATCH http://localhost:8080/usuarios/3/rol -H "Authorization: Bearer $TO
 
 ### 6.1. Registro y login
 
-1. `POST /auth/register` valida el DTO `RegistroRequest` (email, nombre y
-   contraseña), comprueba que el email no existe y guarda el usuario con
-   `Roles.USER` y `passwordEncoder.encode(...)` (BCrypt). El DTO **no tiene
+1. `POST /auth/register` valida el DTO `UsuarioRequest` (email, nombre y
+   contraseña), comprueba que el email no existe y guarda el usuario con el rol
+   `"ROLE_USER"` y `passwordEncoder.encode(...)` (BCrypt). El DTO **no tiene
    campo `rol`**, así que un `"rol":"ROLE_ADMIN"` en el JSON se ignora.
 2. `POST /auth/login` autentica con `AuthenticationManager`; este usa
    `CustomUserDetailsService` (busca el usuario por email) y compara la
@@ -279,26 +284,27 @@ curl -X PATCH http://localhost:8080/usuarios/3/rol -H "Authorization: Bearer $TO
 | Regla | Dónde |
 |---|---|
 | Rutas públicas (`/auth/**`) y permisos por rol de cada ruta | `config/SecurityConfig.java` |
-| Permisos por método (`PATCH estado`, `DELETE`, `/usuarios/**`) | `@PreAuthorize` en los controladores |
 | Autor de la incidencia = usuario del token | `IncidenciaService.crear(...)` |
 | Solo mis incidencias en el listado | `IncidenciaService.listar(...)` + repositorio |
 | Comprobación de propiedad al consultar por URL | `IncidenciaService.obtener(...)` → `exigirAcceso(...)` |
-| Lista blanca de roles | `entity/Roles.java` + `UsuarioService.cambiarRol(...)` |
-| 401 sin token / token inválido | `RestAuthenticationEntryPoint` |
-| 403 sin rol suficiente | `RestAccessDeniedHandler` (y `GlobalExceptionHandler` para `AccesoProhibidoException`) |
+| Lista blanca de roles | `UsuarioController.cambiarRol(...)` |
+| 401 sin token / token inválido | Filtro de Spring Security (`oauth2ResourceServer`) en `SecurityConfig` |
+| 403 sin rol suficiente | `SecurityConfig` (reglas `hasRole`/`hasAnyRole`) |
+| 403 al pedir una incidencia ajena | `AccessDeniedException` en `IncidenciaService.exigirAcceso(...)` |
 
 ### 6.4. 401 frente a 403
 
 - **401 Unauthorized**: la petición no está autenticada. No hay token, o el
-  token no se puede validar (firma incorrecta, caducado, emisor distinto).
-  Se produce en el filtro de seguridad, no en un controlador, y lo escribe
-  `RestAuthenticationEntryPoint`.
+  token no se puede validar (firma incorrecta, caducado, emisor distinto). Lo
+  produce el `BearerTokenAuthenticationEntryPoint` que Spring Security configura
+  al usar `oauth2ResourceServer(...)` en `SecurityConfig`: la petición no llega
+  al controlador.
 - **403 Forbidden**: el usuario **sí** está autenticado, pero su rol (o el
   hecho de no ser el autor) no permite la operación. Por ejemplo `ROLE_USER`
-  haciendo `DELETE /incidencias/1` o `GET /usuarios`. Lo escribe
-  `RestAccessDeniedHandler` cuando lo deniega `SecurityConfig`/`@PreAuthorize`,
-  o `GlobalExceptionHandler` cuando el servicio lanza `AccesoProhibidoException`
-  (incidencia ajena).
+  haciendo `DELETE /incidencias/1` o `GET /usuarios` (lo deniegan las reglas
+  `hasRole`/`hasAnyRole` de `SecurityConfig`), o pidiendo una incidencia ajena
+  (el servicio lanza `AccessDeniedException`). En los dos casos responde el
+  `AccessDeniedHandler` de Spring Security.
 
 Regla práctica: *401 = no sé quién eres; 403 = sé quién eres, pero no puedes*.
 
@@ -626,59 +632,50 @@ commits, sin publicar nada en GitHub.
 
 ### 10.1. Problemas y cómo se resolvieron
 
-1. **`ObjectMapper` no compilaba** (`package com.fasterxml.jackson.databind does
-   not exist`). Spring Boot 4 usa **Jackson 3**, cuyo paquete es
-   `tools.jackson.databind`. Se cambió el import en
-   `RestAuthenticationEntryPoint` y `RestAccessDeniedHandler` y se comprobó que
-   Boot ya autoconfigura un `JsonMapper` (subtipo de `ObjectMapper`) para
-   inyectarlo.
-2. **Todos los tokens devolvían 401**. El `JwtService` inicial firmaba con
+1. **Todos los tokens devolvían 401**. El `JwtService` inicial firmaba con
    `signWith(clave)`; con una clave de 64 bytes, `jjwt` elegía **HS512**,
    mientras `NimbusJwtDecoder.withSecretKey(...)` valida **HS256**. Se fijó el
-   algoritmo con `.signWith(clave, Jwts.SIG.HS256)` y se dejó un comentario para
-   que no vuelva a pasar.
-3. **Riesgo de 500 en lugar de 403**. Un `@RestControllerAdvice` con un
-   `@ExceptionHandler(Exception.class)` habría capturado
-   `AccessDeniedException` (la de `@PreAuthorize`) y la habría convertido en
-   500. Decisión: **no** hay manejador genérico; solo se manejan las excepciones
-   propias y de validación, y los 403 los produce el `AccessDeniedHandler` de
-   Spring Security.
-4. **Tokens invalidados al reiniciar**. El `JwtService` de referencia generaba
+   algoritmo con `.signWith(secretKey, Jwts.SIG.HS256)` y se comprobó
+   decodificando la cabecera (`{"alg":"HS256"}`) y el payload (`sub`, `id`,
+   `roles`, `nombre`, `iat`, `exp`, `iss`).
+2. **Riesgo de 500 en lugar de 403**. Un `@RestControllerAdvice` con un
+   `@ExceptionHandler(Exception.class)` habría capturado `AccessDeniedException`
+   (la de una incidencia ajena) y la habría convertido en 500. Decisión: **no**
+   hay manejador genérico; `GlobalExceptionHandler` solo maneja los errores de
+   validación y los 403 los produce Spring Security.
+3. **Tokens invalidados al reiniciar**. El `JwtService` de referencia generaba
    una clave aleatoria en el constructor. El enunciado pide que la clave se
    configure por propiedades y que un token siga valiendo tras reiniciar, así
    que la clave se lee de `app.jwt.secret` y se valida que tenga 32 bytes como
    mínimo.
-5. **`NoClassDefFoundError: ch/qos/logback/...` al probar en local**. Ocurría
+4. **`NoClassDefFoundError: ch/qos/logback/...` al probar en local**. Ocurría
    porque se recompiló el `.jar` mientras la aplicación seguía ejecutándose
    desde ese mismo archivo; las peticiones se quedaban colgadas. Se resolvió
    parando la aplicación antes de `mvnw package` y arrancando de nuevo con el
    jar recién generado. No afecta al código: es una precaución del entorno de
    pruebas.
-6. **Errores de validación con dos formatos**. Los `400` de `@Valid` devuelven
-   un mapa `campo: mensaje` (como en `MatriculasSpring`), mientras el resto de
-   errores devuelven `{estado, mensaje}`. El frontend
-   (`mensajeDeError` en `frontend/js/api.js`) entiende los dos formatos.
-7. **Comprobación del algoritmo emitido**. Tras el arreglo se decodificó la
-   cabecera del JWT (`{"alg":"HS256","typ":"JWT"}`) y el payload (`sub`, `id`,
-   `roles`, `nombre`, `iat`, `exp`, `iss`) para confirmar que lo que firma
-   `JwtService` es lo que espera `NimbusJwtDecoder`.
+5. **Cómo mostrar los errores en el frontend**. Los `400` de `@Valid` devuelven
+   un mapa `campo: mensaje`, los errores de negocio un `{"error": "..."}` y el
+   401/403 de Spring Security llegan sin cuerpo. El frontend
+   (`mensajeDeError` en `frontend/js/api.js`) entiende los tres casos y, si no
+   hay mensaje, usa uno en español según el código de estado.
 
 ### 10.2. Decisiones técnicas y motivos
 
 | Decisión | Motivo |
 |---|---|
 | **Maven** en lugar de Gradle | Igual que el proyecto de clase (`MatriculasSpring`): mismo wrapper, mismo `pom` y mismas dependencias, para no mezclar herramientas. |
-| **Una sola columna `rol`** (no una lista) | La tabla de permisos del enunciado trata los roles como excluyentes; simplifica el frontend y la validación. `Roles.VALIDOS` es la única lista blanca. |
+| **Una sola columna `rol`** (no una lista) | La tabla de permisos del enunciado trata los roles como excluyentes; simplifica el frontend y la validación. La lista blanca está en `UsuarioController.ROLES_ADMITIDOS`. |
 | **Id numérico** (`Long` con `IDENTITY`) | El reto del enunciado se explica cambiando el número de la URL; con UUID el ejemplo sería menos claro. La autorización impide el acceso aunque los ids se puedan enumerar. |
 | **Autor desde `Authentication`** (email del claim `sub`) | Cumple el requisito de no aceptar el autor del cliente y no necesita que el cliente envíe nada extra. Se resuelve el usuario en la BD para obtener la entidad `Usuario`. |
 | **403 al consultar una incidencia ajena** (en lugar de 404) | El enunciado espera un 403 y así se ve claramente la regla aplicada. Alternativa: devolver 404 para no revelar si la incidencia existe; se descartó por claridad didáctica. |
-| **Comprobación en el servicio**, no solo en la ruta | Si mañana se añade otro punto de acceso (otro controlador, tarea programada…), la regla sigue aplicándose. Además se repite el rol en `@PreAuthorize` y en la configuración de rutas (defensa en profundidad). |
+| **Comprobación de propiedad en el servicio** | La configuración de rutas no puede saber de quién es cada incidencia: se compara el autor con el email del token en `IncidenciaService.exigirAcceso(...)` y, si no coincide, se lanza `AccessDeniedException` para que Spring Security responda 403. |
 | **JWT con roles en un claim** | Es el enfoque del curso: sin estado en el servidor. La contrapartida (permisos obsoletos hasta que caduca) se analiza en el apartado 8. |
 | **HS256 explícito + validación del emisor** | Evita el desajuste de algoritmos y que se acepten tokens de otra aplicación firmados con la misma clave. |
 | **`POST /incidencias` devuelve 201 + `Location`** | Convención REST y facilita las pruebas; el cuerpo devuelve la incidencia creada con su id. |
 | **DTO en la API, nunca entidades** | Evita exponer la contraseña cifrada y las relaciones JPA (referencias circulares o *lazy loading* fuera de transacción). |
 | **`@Transactional` en los servicios** | El mapeo a DTO del autor (`LAZY`) se hace dentro de la transacción; sin ella aparecería `LazyInitializationException`. |
-| **Errores JSON homogéneos** | El frontend y Postman muestran el mensaje del servidor sin tener que interpretar la página de error de Spring. |
+| **401 y 403 de Spring Security sin clases propias** | Es el comportamiento por defecto al usar `oauth2ResourceServer` (igual que en `MatriculasSpring`): menos código y el estándar de la plataforma; el frontend traduce el código de estado a un mensaje en español. |
 | **Frontend separado con `CorsConfig`** | Como en `MatriculasSpring`: permite abrir el frontend desde otro origen o directamente con `file://` en desarrollo. En producción se limitarían los orígenes. |
 | **JWT en `localStorage`** | Es lo que pide la tarea y lo que se ve en clase. Es vulnerable a XSS; con una cookie `HttpOnly` se mitigaría, a cambio de más complejidad (CSRF, CORS con credenciales). |
 | **Sin H2 ni frameworks de test** | No se añaden tecnologías que no se hayan visto en clase; las comprobaciones del enunciado se hacen con `curl`/Postman y el script `docs/comprobaciones.sh`, y se documentan en el README. `mvnw test` sigue disponible para futuras pruebas. |
@@ -705,11 +702,11 @@ IncidenciasAPI/
 └── src/main/
     ├── java/ovh/emserv/incidenciasapi/
     │   ├── IncidenciasApiApplication.java
-    │   ├── config/       SecurityConfig, CorsConfig, 401 y 403
+    │   ├── config/       SecurityConfig, CorsConfig
     │   ├── controller/   AuthController, IncidenciaController, UsuarioController
     │   ├── DTO/          Peticiones y respuestas de la API
-    │   ├── entity/       Usuario, Incidencia, EstadoIncidencia, Roles
-    │   ├── exception/    Excepciones propias y GlobalExceptionHandler
+    │   ├── entity/       Usuario, Incidencia, EstadoIncidencia
+    │   ├── exception/    GlobalExceptionHandler
     │   ├── repository/   UsuarioRepository, IncidenciaRepository
     │   └── service/      AuthService, IncidenciaService, UsuarioService, JwtService, CustomUserDetailsService
     └── resources/application.properties

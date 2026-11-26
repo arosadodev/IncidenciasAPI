@@ -12,8 +12,7 @@ Duración objetivo: 8–10 minutos. Todo lo que se muestra está verificado con
 3. Ten abierto Postman con la colección `postman/IncidenciasAPI.postman_collection.json`
    y ejecuta primero la carpeta **01 - Auth** (guarda los tokens en variables).
 4. Abre en el IDE estos archivos para poder enseñarlos:
-   `config/SecurityConfig.java`, `config/RestAuthenticationEntryPoint.java`,
-   `config/RestAccessDeniedHandler.java`, `service/IncidenciaService.java`,
+   `config/SecurityConfig.java`, `service/IncidenciaService.java`,
    `service/JwtService.java`.
 
 ## 0:00 · Presentación (30 s)
@@ -63,20 +62,21 @@ Duración objetivo: 8–10 minutos. Todo lo que se muestra está verificado con
 Provoca las dos respuestas en Postman y enseña el código.
 
 1. **401** — sin token o con token inválido/caducado:
-   - `GET /incidencias` sin cabecera `Authorization` → 401 con
-     `{"estado":401,"mensaje":"No autenticado: ..."}`.
+   - `GET /incidencias` sin cabecera `Authorization` → 401 (sin cuerpo, con
+     cabecera `WWW-Authenticate`).
    - `GET /incidencias` con un token firmado con otra clave → 401.
    - Código: `JwtService`/`SecurityConfig.jwtDecoder()` valida firma, emisor y
-     caducidad; cuando falla, lo maneja `RestAuthenticationEntryPoint`
-     (configurado en `SecurityConfig` con `oauth2ResourceServer(...)` y
-     `exceptionHandling(...)`).
+     caducidad. Cuando falla, la petición no llega al controlador: la corta el
+     `BearerTokenAuthenticationEntryPoint` que configura
+     `oauth2ResourceServer(...)` en `SecurityConfig`.
 2. **403** — autenticado pero sin permiso:
    - Con el token de Ana, `DELETE /incidencias/{id}` → 403.
    - Con el token de Ana, `GET /usuarios` → 403.
-   - Código: la regla está en `SecurityConfig` (`.requestMatchers(...).hasRole("ADMIN")`)
-     y en `@PreAuthorize`; el 403 lo produce `RestAccessDeniedHandler`.
-   - El otro 403 (incidencia ajena) lo produce `AccesoProhibidoException` en el
-     servicio y lo traduce `GlobalExceptionHandler`.
+   - Código: la regla está en `SecurityConfig`
+     (`.requestMatchers(...).hasRole("ADMIN")`); responde el
+     `AccessDeniedHandler` por defecto de Spring Security.
+   - El otro 403 (incidencia ajena) lo lanza `IncidenciaService.exigirAcceso(...)`
+     con `AccessDeniedException`, que Spring Security también convierte en 403.
 
 Frase para el vídeo: "el 401 dice *no sé quién eres*, el 403 dice *sé quién
 eres, pero no puedes hacer esto*".
@@ -87,7 +87,7 @@ eres, pero no puedes hacer esto*".
 - `GET /usuarios` → 200; con el token de Ana → 403.
 - `PATCH /usuarios/{id}/rol` con `{"rol":"ROLE_TECNICO"}` → 200.
 - `PATCH /usuarios/{id}/rol` con `{"rol":"ROLE_DIOS"}` → 400 (lista blanca en
-  `Roles.VALIDOS`).
+  `UsuarioController.ROLES_ADMITIDOS`).
 - `DELETE /incidencias/{id}` con admin → 204; con el autor (ROLE_USER) → 403.
 - Enseña en el frontend cómo aparece el panel de usuarios solo al admin.
 
