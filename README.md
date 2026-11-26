@@ -127,6 +127,9 @@ app.jwt.issuer=App-Incidencias
 ./mvnw spring-boot:run
 ```
 
+> Si tu `java` por defecto no es 21, exporta antes `JAVA_HOME`:
+> `export JAVA_HOME=/ruta/al/jdk-21`. El proyecto compila con `release=21`.
+
 La API queda en <http://localhost:8080>. Para empaquetar:
 
 ```bash
@@ -353,6 +356,16 @@ Comprobaciones manuales adicionales:
   espera un minuto y repite una petición con el token anterior: `401`.
 - **Frontend**: ejecuta todos los flujos con cada rol y observa los mensajes de
   error (401 → cierra sesión; 403 → mensaje de permisos; 400 → validación).
+  Durante el desarrollo se recorrieron esos flujos con Chromium automatizado
+  (Playwright, fuera del repositorio) y se guardaron estas capturas:
+
+  | Vista de `ROLE_USER` | Vista de `ROLE_ADMIN` |
+  |---|---|
+  | ![Vista de usuario](docs/img/01-vista-usuario.png) | ![Vista de admin](docs/img/02-vista-admin.png) |
+
+  | Detalle de una incidencia (sin acciones para `ROLE_USER`) | 403 al pedir una incidencia ajena |
+  |---|---|
+  | ![Detalle](docs/img/04-detalle-usuario.png) | ![Error 403](docs/img/03-error-403.png) |
 
 Colección de Postman: `postman/IncidenciasAPI.postman_collection.json`, con las
 carpetas _Auth_, _Incidencias_, _Usuarios_ y _Seguridad_. Los `POST /auth/login`
