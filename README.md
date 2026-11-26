@@ -658,9 +658,10 @@ commits, sin publicar nada en GitHub.
    un mapa `campo: mensaje` (como en `MatriculasSpring`), mientras el resto de
    errores devuelven `{estado, mensaje}`. El frontend
    (`mensajeDeError` en `frontend/js/api.js`) entiende los dos formatos.
-7. **`HS512/HS256` y `algoritmo` en el header**. Se verificó con `jwt.io` y
-   decodificando el header (`{"alg":"HS256"}`) que el token emitido y el
-   esperado por el decodificador coinciden.
+7. **Comprobación del algoritmo emitido**. Tras el arreglo se decodificó la
+   cabecera del JWT (`{"alg":"HS256","typ":"JWT"}`) y el payload (`sub`, `id`,
+   `roles`, `nombre`, `iat`, `exp`, `iss`) para confirmar que lo que firma
+   `JwtService` es lo que espera `NimbusJwtDecoder`.
 
 ### 10.2. Decisiones técnicas y motivos
 
