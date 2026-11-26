@@ -1,6 +1,6 @@
 // Capa de acceso a la API.
 //
-// Se encarga de :
+// Se encarga de:
 //  - guardar, leer y borrar el JWT de localStorage,
 //  - enviar la cabecera Authorization: Bearer en las rutas protegidas,
 //  - convertir las respuestas de error de la API en un Error con mensaje.
@@ -11,16 +11,46 @@ const sesion = {
   cerrar: () => localStorage.removeItem(CLAVE_TOKEN),
 };
 
-// El backend devuelve {"estado": 403, "mensaje": "..."} o, en los errores de
-// validación, un mapa campo -> mensaje. Esta función entiende ambos formatos.
-function mensajeDeError(datos) {
-  if (!datos) return "";
-  if (typeof datos.mensaje === "string") return datos.mensaje;
-  if (typeof datos.error === "string") return datos.error;
-  if (typeof datos === "object") {
-    return Object.values(datos).filter((valor) => typeof valor === "string").join(". ");
+// Mensajes para cuando la API responde sin cuerpo (401 y 403 de Spring Security
+// llegan vacíos) o con el texto genérico de Spring Boot.
+const MENSAJES_POR_ESTADO = {
+  400: "La petición no es válida",
+  401: "No autenticado: inicia sesión",
+  403: "No tienes permisos para esta operación",
+  404: "No existe el recurso solicitado",
+  409: "El recurso ya existe",
+  500: "Error interno del servidor",
+};
+
+const MENSAJES_GENERICOS = new Set([
+  "Bad Request",
+  "Unauthorized",
+  "Forbidden",
+  "Not Found",
+  "Conflict",
+  "Internal Server Error",
+]);
+
+// La API devuelve {"error": "..."}, un mapa campo -> mensaje (errores de
+// validación) o nada (401/403 por defecto de Spring Security).
+function mensajeDeError(datos, estado) {
+  if (datos && typeof datos === "object") {
+    if (typeof datos.mensaje === "string" && datos.mensaje) return datos.mensaje;
+
+    const campos = Object.entries(datos).filter(
+      ([clave, valor]) =>
+        typeof valor === "string" && !["error", "timestamp", "status", "path"].includes(clave)
+    );
+    if (campos.length) {
+      return campos.map(([campo, texto]) => `${campo}: ${texto}`).join(". ");
+    }
+
+    if (typeof datos.error === "string" && datos.error && !MENSAJES_GENERICOS.has(datos.error)) {
+      return datos.error;
+    }
   }
-  return "";
+
+  return MENSAJES_POR_ESTADO[estado] ?? `Error ${estado}`;
 }
 
 async function peticion(ruta, opciones = {}, publica = false) {
@@ -50,18 +80,16 @@ async function peticion(ruta, opciones = {}, publica = false) {
       throw new Error("La sesión ha caducado. Inicia sesión de nuevo");
     }
 
-    let detalle = "";
+    let detalle = null;
     if (respuesta.headers.get("content-type")?.includes("application/json")) {
       try {
-        detalle = mensajeDeError(await respuesta.json());
+        detalle = await respuesta.json();
       } catch (e) {
-        detalle = "";
+        detalle = null;
       }
     }
 
-    const error = new Error(detalle || `Error ${respuesta.status}`);
-    error.estado = respuesta.status;
-    throw error;
+    throw new Error(mensajeDeError(detalle, respuesta.status));
   }
 
   return respuesta.status === 204 ? null : respuesta.json();

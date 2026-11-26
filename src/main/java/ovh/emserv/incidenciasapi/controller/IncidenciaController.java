@@ -2,9 +2,7 @@ package ovh.emserv.incidenciasapi.controller;
 
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 import ovh.emserv.incidenciasapi.DTO.CambioEstadoRequest;
@@ -16,11 +14,10 @@ import java.net.URI;
 import java.util.List;
 
 /**
- * Endpoints de incidencias.
+ * Controlador REST de las incidencias.
  *
- * El controlador solo se ocupa de HTTP: recibe el Authentication que Spring
- * Security construye a partir del JWT y delega en el servicio, que es quien
- * comprueba la propiedad de cada incidencia.
+ * Los permisos por rol están en SecurityConfig; la propiedad de cada incidencia
+ * se comprueba en IncidenciaService con el Authentication del token.
  */
 @RestController
 @RequestMapping("/incidencias")
@@ -40,11 +37,13 @@ public class IncidenciaController {
 
     /**
      * GET /incidencias/{id}
-     * Si un ROLE_USER pide una incidencia ajena, el servicio responde 403.
+     * Si un ROLE_USER pide una incidencia ajena, el servicio lanza 403.
      */
     @GetMapping("/{id}")
-    public IncidenciaResponse obtener(@PathVariable Long id, Authentication autenticacion) {
-        return incidenciaService.obtener(id, autenticacion);
+    public ResponseEntity<IncidenciaResponse> obtener(@PathVariable Long id, Authentication autenticacion) {
+        return incidenciaService.obtener(id, autenticacion)
+                .map(ResponseEntity::ok)
+                .orElseGet(() -> ResponseEntity.notFound().build());
     }
 
     /**
@@ -58,20 +57,24 @@ public class IncidenciaController {
         return ResponseEntity.created(URI.create("/incidencias/" + creada.id())).body(creada);
     }
 
-    /** PATCH /incidencias/{id}/estado - solo TECNICO y ADMIN. */
-    @PreAuthorize("hasAnyRole('TECNICO', 'ADMIN')")
+    /**
+     * PATCH /incidencias/{id}/estado - solo TECNICO y ADMIN (ver SecurityConfig).
+     */
     @PatchMapping("/{id}/estado")
-    public IncidenciaResponse cambiarEstado(@PathVariable Long id,
-                                            @Valid @RequestBody CambioEstadoRequest datos,
-                                            Authentication autenticacion) {
-        return incidenciaService.cambiarEstado(id, datos.estado(), autenticacion);
+    public ResponseEntity<IncidenciaResponse> cambiarEstado(@PathVariable Long id,
+                                                            @Valid @RequestBody CambioEstadoRequest datos) {
+        return incidenciaService.cambiarEstado(id, datos.estado())
+                .map(ResponseEntity::ok)
+                .orElseGet(() -> ResponseEntity.notFound().build());
     }
 
-    /** DELETE /incidencias/{id} - solo ADMIN. */
-    @PreAuthorize("hasRole('ADMIN')")
+    /**
+     * DELETE /incidencias/{id} - solo ADMIN (ver SecurityConfig).
+     */
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> eliminar(@PathVariable Long id, Authentication autenticacion) {
-        incidenciaService.eliminar(id, autenticacion);
-        return ResponseEntity.status(HttpStatus.NO_CONTENT).build();
+    public ResponseEntity<Void> eliminar(@PathVariable Long id) {
+        return incidenciaService.eliminar(id)
+                ? ResponseEntity.noContent().build()
+                : ResponseEntity.notFound().build();
     }
 }

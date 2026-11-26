@@ -7,7 +7,6 @@ import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
-import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
@@ -24,54 +23,43 @@ import ovh.emserv.incidenciasapi.service.JwtService;
 /**
  * Configuración de seguridad de la API.
  *
- * Resumen de la política:
- *  - /auth/** es público (registro y login).
- *  - Todo lo demás requiere un JWT válido.
- *  - Cambiar el estado de una incidencia: ROLE_TECNICO o ROLE_ADMIN.
- *  - Eliminar una incidencia: ROLE_ADMIN.
- *  - Consultar/modificar usuarios: ROLE_ADMIN.
- *  - El resto (crear y consultar incidencias) requiere estar autenticado; el
- *    filtrado por autor se hace en IncidenciaService con la identidad del token.
+ * Rutas públicas y permisos por rol:
+ *  - /auth/** públicos (registro y login).
+ *  - Crear y consultar incidencias: cualquier usuario autenticado. El filtrado
+ *    por autor se hace en IncidenciaService con la identidad del token.
+ *  - Cambiar el estado: ROLE_TECNICO o ROLE_ADMIN.
+ *  - Eliminar incidencias y todo /usuarios/**: ROLE_ADMIN.
  *
- * No hay sesiones: cada petición se autentica con su token (STATELESS).
+ * Sin sesiones: cada petición se valida con su JWT (STATELESS).
  */
 @Configuration
 @EnableWebSecurity
-@EnableMethodSecurity // activa @PreAuthorize en los controladores
 @RequiredArgsConstructor
 public class SecurityConfig {
 
     private final JwtService jwtService;
-    private final RestAuthenticationEntryPoint restAuthenticationEntryPoint;
-    private final RestAccessDeniedHandler restAccessDeniedHandler;
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
                 .cors(Customizer.withDefaults())
-                // Sin formularios ni cookies de sesión no hace falta CSRF
+                // Deshabilitar CSRF (no necesario en APIs REST con JWT)
                 .csrf(csrf -> csrf.disable())
 
+                // Autorización de las peticiones HTTP
                 .authorizeHttpRequests(auth -> auth
-                        // ---------- Rutas públicas ----------
+                        // Rutas públicas: registro y login
                         .requestMatchers("/auth/**").permitAll()
                         .requestMatchers("/error").permitAll()
-                        .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
 
-                        // ---------- Incidencias ----------
-                        // Crear: cualquier usuario autenticado (USER, TECNICO, ADMIN)
+                        // Incidencias
                         .requestMatchers(HttpMethod.POST, "/incidencias").authenticated()
-                        // Consultar listado o una incidencia concreta: autenticado.
-                        // El "solo mis incidencias" se comprueba en el servicio.
                         .requestMatchers(HttpMethod.GET, "/incidencias", "/incidencias/*").authenticated()
-                        // Cambiar el estado: solo TECNICO y ADMIN
                         .requestMatchers(HttpMethod.PATCH, "/incidencias/*/estado")
-                        .hasAnyRole("TECNICO", "ADMIN")
-                        // Eliminar: solo ADMIN
+                            .hasAnyRole("TECNICO", "ADMIN")
                         .requestMatchers(HttpMethod.DELETE, "/incidencias/*").hasRole("ADMIN")
 
-                        // ---------- Usuarios ----------
-                        // Consultar usuarios y cambiar roles: solo ADMIN
+                        // Usuarios: solo administradores
                         .requestMatchers("/usuarios/**").hasRole("ADMIN")
 
                         .anyRequest().authenticated()
@@ -79,21 +67,13 @@ public class SecurityConfig {
 
                 // Validación automática del JWT en cada petición protegida
                 .oauth2ResourceServer(oauth2 -> oauth2
-                        .authenticationEntryPoint(restAuthenticationEntryPoint)
-                        .accessDeniedHandler(restAccessDeniedHandler)
                         .jwt(jwt -> jwt
-                                .decoder(jwtDecoder())
-                                .jwtAuthenticationConverter(jwtAuthenticationConverter())
+                                .decoder(jwtDecoder())                 // cómo se valida el token
+                                .jwtAuthenticationConverter(jwtAuthenticationConverter()) // cómo se extraen los roles
                         )
                 )
 
-                // 401 sin token / token inválido y 403 sin permisos, con cuerpo JSON
-                .exceptionHandling(excepciones -> excepciones
-                        .authenticationEntryPoint(restAuthenticationEntryPoint)
-                        .accessDeniedHandler(restAccessDeniedHandler)
-                )
-
-                // Sin sesiones en servidor: el estado viaja en el token
+                // Sin sesiones en el servidor
                 .sessionManagement(session -> session
                         .sessionCreationPolicy(SessionCreationPolicy.STATELESS)
                 );
@@ -107,8 +87,8 @@ public class SecurityConfig {
      */
     @Bean
     public JwtDecoder jwtDecoder() {
-        NimbusJwtDecoder decoder = NimbusJwtDecoder.withSecretKey(jwtService.getClave()).build();
-        decoder.setJwtValidator(JwtValidators.createDefaultWithIssuer(jwtService.getEmisor()));
+        NimbusJwtDecoder decoder = NimbusJwtDecoder.withSecretKey(jwtService.getSecretKey()).build();
+        decoder.setJwtValidator(JwtValidators.createDefaultWithIssuer(JwtService.EMISOR));
         return decoder;
     }
 

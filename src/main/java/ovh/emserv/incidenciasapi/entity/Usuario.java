@@ -6,72 +6,58 @@ import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 
-import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.List;
 
-/**
- * Usuario de la aplicación.
- *
- * Implementa UserDetails porque es la clase que Spring Security usa durante el login
- * (AuthenticationManager -> CustomUserDetailsService -> este objeto) y también para
- * saber si la cuenta está activa.
+/*
+- Registrar qué usuario añade cada incidencia
+- Añadir repositorio y controlador para Usuario (sólo registrar)
  */
-@Entity
-@Table(name = "usuarios")
 @Getter
 @Setter
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
+@Entity
+@Table(name = "usuarios")
 public class Usuario implements UserDetails {
 
+    // Clave primaria de la entidad; JPA la identifica con @Id.
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false, unique = true, length = 120)
+    // Dato email de tipo String; JPA lo mapea a una columna cuando pertenece a una entidad.
+    @Column(unique = true, nullable = false)
     private String email;
 
-    @Column(nullable = false, length = 60)
+    // Atributo nombre de tipo String; en una entidad JPA se mapea a una columna salvo configuración distinta.
+    @Column(nullable = false)
     private String nombre;
 
-    /** Contraseña cifrada con BCrypt; nunca se guarda en claro. */
+    // Contraseña del usuario; la capa de autenticación almacena su valor cifrado con BCrypt.
     @Column(nullable = false)
     private String password;
 
-    /**
-     * Rol del usuario. Solo se admiten ROLE_USER, ROLE_TECNICO y ROLE_ADMIN
-     * (la validación está en UsuarioService, no en la entidad).
-     */
-    @Column(nullable = false, length = 20)
+    // Rol del usuario: ROLE_USER, ROLE_TECNICO o ROLE_ADMIN.
+    @Column(nullable = false)
     private String rol;
 
+    // Atributo activo de tipo Boolean; lo usa isEnabled() para permitir o no el login.
     @Column(nullable = false)
     private Boolean activo;
 
-    @Column(nullable = false, updatable = false)
-    private LocalDateTime fechaRegistro;
-
-    /** Se ejecuta automáticamente antes de insertar un usuario nuevo. */
-    @PrePersist
-    protected void onCreate() {
-        this.fechaRegistro = LocalDateTime.now();
-        if (this.activo == null) {
-            this.activo = true;
-        }
-    }
-
     /**
-     * Spring Security consulta este método para saber los permisos del usuario.
-     * El rol ya se guarda con el prefijo ROLE_, así que no hay que añadirlo.
+     * Convierte el valor de "rol" en el permiso que entiende Spring Security.
      */
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
         return List.of(new SimpleGrantedAuthority(rol));
     }
 
-    /** El nombre de usuario para Spring Security es el email. */
+    /**
+     * El nombre de usuario para Spring Security es el email.
+     */
     @Override
     public String getUsername() {
         return email;

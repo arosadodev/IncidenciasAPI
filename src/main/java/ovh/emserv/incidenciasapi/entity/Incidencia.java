@@ -5,22 +5,20 @@ import lombok.*;
 
 import java.time.LocalDateTime;
 
-/**
- * Incidencia del centro: por ejemplo una avería en un aula o un problema
- * con un equipo informático.
- *
- * El autor es siempre un Usuario ya autenticado. El estado inicial lo pone
- * el backend (ABIERTA), no el cliente.
+/*
+Incidencia del centro: una avería en un aula, un problema con un equipo informático, etc.
+El autor es siempre el usuario autenticado que la crea.
  */
-@Entity
-@Table(name = "incidencias")
 @Getter
 @Setter
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
+@Entity
+@Table(name = "incidencias")
 public class Incidencia {
 
+    // Clave primaria de la entidad; JPA la identifica con @Id.
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -31,36 +29,22 @@ public class Incidencia {
     @Column(nullable = false, length = 1000)
     private String descripcion;
 
+    // Los estados se guardan como texto (ABIERTA, EN_PROCESO o RESUELTA).
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 20)
+    @Column(nullable = false)
     private EstadoIncidencia estado;
 
     @Column(nullable = false, updatable = false)
     private LocalDateTime fechaCreacion;
 
-    private LocalDateTime fechaActualizacion;
-
-    /**
-     * Autor de la incidencia. Se obtiene en el servicio a partir del usuario
-     * autenticado (nunca desde el cuerpo de la petición).
-     * FetchType.LAZY: el autor solo se consulta cuando se necesita (por ejemplo
-     * al montar el DTO de respuesta dentro de la transacción).
-     */
+    // Relación persistente de JPA con el autor de la incidencia.
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "autor_id", nullable = false)
     private Usuario autor;
 
+    // Se ejecuta automáticamente antes de insertar una incidencia nueva.
     @PrePersist
     protected void onCreate() {
         this.fechaCreacion = LocalDateTime.now();
-        this.fechaActualizacion = this.fechaCreacion;
-        if (this.estado == null) {
-            this.estado = EstadoIncidencia.ABIERTA;
-        }
-    }
-
-    @PreUpdate
-    protected void onUpdate() {
-        this.fechaActualizacion = LocalDateTime.now();
     }
 }

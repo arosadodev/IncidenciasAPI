@@ -4,18 +4,15 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import ovh.emserv.incidenciasapi.DTO.UsuarioResponse;
-import ovh.emserv.incidenciasapi.entity.Roles;
 import ovh.emserv.incidenciasapi.entity.Usuario;
-import ovh.emserv.incidenciasapi.exception.RecursoNoEncontradoException;
-import ovh.emserv.incidenciasapi.exception.RolInvalidoException;
 import ovh.emserv.incidenciasapi.repository.UsuarioRepository;
 
 import java.util.List;
-import java.util.TreeSet;
+import java.util.Optional;
 
 /**
- * Operaciones de administración sobre usuarios: listarlos y cambiar su rol.
- * Las rutas que las usan solo son accesibles para ROLE_ADMIN.
+ * Servicio de la capa de negocio para consultar usuarios y cambiar su rol.
+ * Las rutas que lo usan solo son accesibles para ROLE_ADMIN.
  */
 @Service
 @RequiredArgsConstructor
@@ -31,29 +28,18 @@ public class UsuarioService {
     }
 
     /**
-     * Cambia el rol de un usuario validando que sea uno de los admitidos.
-     * Si el valor no está en la lista blanca se lanza RolInvalidoException (400)
-     * y si el usuario no existe, RecursoNoEncontradoException (404).
-     *
-     * Nota: el cambio en la base de datos es inmediato, pero el token que ya
-     * tuviera el usuario sigue llevando el rol antiguo hasta que caduque o
-     * vuelva a iniciar sesión (ver README, apartado "Para pensar").
+     * Cambia el rol de un usuario. La lista blanca de roles se comprueba en
+     * UsuarioController; aquí solo se comprueba que el usuario existe.
      */
     @Transactional
-    public UsuarioResponse cambiarRol(Long id, String rol) {
-        String rolSolicitado = rol == null ? "" : rol.trim();
-
-        if (!Roles.VALIDOS.contains(rolSolicitado)) {
-            throw new RolInvalidoException(
-                    "Rol no válido. Valores admitidos: " + String.join(", ", new TreeSet<>(Roles.VALIDOS)));
+    public Optional<UsuarioResponse> cambiarRol(Long id, String rol) {
+        Optional<Usuario> usuario = usuarioRepository.findById(id);
+        if (usuario.isEmpty()) {
+            return Optional.empty();
         }
 
-        Usuario usuario = usuarioRepository.findById(id)
-                .orElseThrow(() -> new RecursoNoEncontradoException("No existe el usuario con id " + id));
+        usuario.get().setRol(rol);
 
-        usuario.setRol(rolSolicitado);
-        usuarioRepository.save(usuario);
-
-        return UsuarioResponse.desde(usuario);
+        return Optional.of(UsuarioResponse.desde(usuarioRepository.saveAndFlush(usuario.get())));
     }
 }

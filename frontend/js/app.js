@@ -190,7 +190,6 @@ async function abrirDetalle(id) {
   $("detalle-estado").replaceChildren(crearEtiquetaEstado(incidencia.estado));
   $("detalle-autor").textContent = incidencia.autor.nombre + " (" + incidencia.autor.email + ")";
   $("detalle-creacion").textContent = fecha(incidencia.fechaCreacion);
-  $("detalle-actualizacion").textContent = fecha(incidencia.fechaActualizacion);
   $("detalle-descripcion").textContent = incidencia.descripcion;
   $("detalle-nuevo-estado").value = incidencia.estado;
 
