@@ -50,7 +50,8 @@ El proyecto debe poder explicarse con lo trabajado en el módulo. Por tanto:
 
 ```
 src/main/java/ovh/emserv/incidenciasapi/
-├── config/       SecurityConfig (rutas, JWT, BCrypt), CorsConfig
+├── config/       SecurityConfig (rutas, JWT, BCrypt), CorsConfig,
+│                 DatosIniciales (usuarios de prueba al arrancar)
 ├── controller/   AuthController, IncidenciaController, UsuarioController
 ├── DTO/          UsuarioRequest, UsuarioResponse, LoginRequest,
 │                 IncidenciaRequest, IncidenciaResponse,
@@ -112,6 +113,12 @@ postman/          Colección de Postman de la API
    clave de forma aleatoria al arrancar: los tokens deben sobrevivir a un
    reinicio con la misma clave.
 7. Nunca expongas entidades JPA con la contraseña ni datos internos: usa DTO.
+8. **Datos iniciales**: `config/DatosIniciales` deja en cada arranque los usuarios
+   `admin@centro.es` (ROLE_ADMIN), `tecnico@centro.es` (ROLE_TECNICO),
+   `ana@centro.es` y `luis@centro.es` (ROLE_USER), todos con contraseña `1234`
+   **ya cifrada** (hash BCrypt fijo y comentado en el código). El seed es
+   idempotente y resetea rol, estado y contraseña de esos cuatro usuarios; no
+   añadas contraseñas en claro en el código ni en la base de datos.
 
 ## 6. Configuración y secretos
 
@@ -123,8 +130,9 @@ postman/          Colección de Postman de la API
   `DB_PASSWORD`. No cambies el nombre de la base de datos (`incidencias`) ni el
   puerto (3307) sin justificarlo.
 - No crees la base de datos ni las tablas a mano: `createDatabaseIfNotExist=true`
-  y `ddl-auto=update` lo hacen al arrancar. El único paso manual es el primer
-  `ROLE_ADMIN` (`db/roles.sql`).
+  y `ddl-auto=update` lo hacen al arrancar. Los usuarios de prueba (incluido el
+  `ROLE_ADMIN`) los crea `config/DatosIniciales`; `db/roles.sql` es solo una
+  alternativa manual.
 
 ## 7. Validación
 

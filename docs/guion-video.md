@@ -25,6 +25,10 @@ Duración objetivo: 8–10 minutos. Todo lo que se muestra está verificado con
 
 ## 0:30 · Arranque y base de datos (40 s)
 
+- Al arrancar, la aplicación crea los usuarios de prueba: `admin@centro.es`,
+  `tecnico@centro.es`, `ana@centro.es` y `luis@centro.es`, todos con contraseña
+  `1234` (cifrada con BCrypt en el código).
+
 - Enseña `application.properties`: URL `jdbc:mysql://localhost:3307/incidencias`
   con `createDatabaseIfNotExist=true` y `ddl-auto=update`; no hay que crear la
   base de datos ni las tablas a mano.
@@ -33,7 +37,8 @@ Duración objetivo: 8–10 minutos. Todo lo que se muestra está verificado con
 
 ## 1:10 · Registro y login en el frontend (60 s)
 
-- Registra `marta@centro.es` desde la interfaz.
+- Inicia sesión con `ana@centro.es` / `1234` y, si quieres, registra un usuario
+  nuevo (`marta@centro.es`) desde la interfaz.
 - Fíjate en que la respuesta trae `"rol":"ROLE_USER"` aunque se envíe otro rol:
   el registro no acepta roles privilegiados.
 - Inicia sesión, abre las herramientas del navegador → Application →

@@ -1,4 +1,6 @@
--- Preparación de los perfiles iniciales (paso manual del enunciado).
+-- Alternativa manual para asignar el primer ROLE_ADMIN por SQL.
+-- La aplicación ya crea el administrador al arrancar (config/DatosIniciales),
+-- así que este script solo hace falta si se quiere hacer sin el seed.
 --
 -- El registro público siempre crea ROLE_USER, así que el PRIMER administrador
 -- se asigna directamente en la base de datos de desarrollo. A partir de ahí ya

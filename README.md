@@ -41,6 +41,10 @@ Además:
   propiedad al consultar una incidencia concreta (no basta con ocultar enlaces).
 - Lista blanca de roles al modificarlos y todas las operaciones de
   administración reservadas a `ROLE_ADMIN`.
+- **Datos iniciales**: al arrancar se crean (o se actualizan) cuatro usuarios de
+  prueba con contraseña `1234` cifrada con BCrypt: `admin@centro.es`
+  (`ROLE_ADMIN`), `tecnico@centro.es` (`ROLE_TECNICO`), `ana@centro.es` y
+  `luis@centro.es` (`ROLE_USER`).
 - Frontend sin frameworks que guarda el JWT, lo envía como `Bearer` y muestra
   los errores de la API (401, 403, 400, 404, 409).
 
@@ -147,31 +151,35 @@ las peticiones desde cualquier origen en desarrollo.
 Si el backend está en otro host o puerto, cambia `API_URL` en
 `frontend/js/config.js`.
 
-### 4.4. Perfiles iniciales (primer administrador)
+### 4.4. Datos iniciales (usuarios de prueba)
 
-El registro público solo crea `ROLE_USER`, así que el **primer**
-`ROLE_ADMIN` se asigna directamente en la base de datos de desarrollo, como
-pide el enunciado. Después ya se usa la propia API para el resto:
+Al arrancar, `config/DatosIniciales` (un `CommandLineRunner`) comprueba y deja
+siempre estos usuarios, así que **no hay que registrar nada a mano** ni tocar
+la base de datos:
 
-1. Registra los usuarios (desde el frontend o con `curl`, ver más abajo).
-2. Promociona el primero a administrador:
-
-   ```bash
-   mysql -h127.0.0.1 -P3307 -uroot -p incidencias < db/roles.sql
-   ```
-
-3. Inicia sesión con ese usuario (el token anterior seguía siendo `ROLE_USER`)
-   y usa `PATCH /usuarios/{id}/rol` para convertir otro usuario en
-   `ROLE_TECNICO` o `ROLE_ADMIN`.
-
-Usuarios que crea `docs/comprobaciones.sh`:
-
-| Email | Contraseña | Rol final |
+| Email (usuario) | Contraseña | Rol |
 |---|---|---|
-| `ana@centro.es` | `password123` | `ROLE_USER` |
-| `luis@centro.es` | `password123` | `ROLE_USER` |
-| `tecnico@centro.es` | `password123` | `ROLE_TECNICO` (lo asigna el admin) |
-| `admin@centro.es` | `password123` | `ROLE_ADMIN` (SQL) |
+| `admin@centro.es` | `1234` | `ROLE_ADMIN` |
+| `tecnico@centro.es` | `1234` | `ROLE_TECNICO` |
+| `ana@centro.es` | `1234` | `ROLE_USER` |
+| `luis@centro.es` | `1234` | `ROLE_USER` |
+
+- La contraseña se guarda **ya cifrada**: en el código solo hay un hash BCrypt de
+  `1234` (comentado), nunca la contraseña en claro en la base de datos.
+- El seed es idempotente: si el usuario no existe lo crea y, si existe,
+  actualiza su rol, su estado y su contraseña, de modo que estos cuatro datos de
+  prueba son siempre los mismos tras un reinicio. Cualquier cambio de rol que se
+  haga sobre ellos por la API se pierde al reiniciar (el resto de usuarios no se
+  toca).
+- El registro público (`/auth/register`) solo crea `ROLE_USER`, como pide el
+  enunciado. La promoción manual del primer administrador por SQL
+  (`db/roles.sql`) queda como alternativa si se quiere hacer sin el seed.
+- `docs/comprobaciones.sh` intenta registrar los mismos emails y tolera el
+  `409` que devuelve la API cuando ya existen por el seed.
+
+> Para probar la aplicación desde el frontend: `admin@centro.es` / `1234`
+> (administrador), `tecnico@centro.es` / `1234` (técnico) y
+> `ana@centro.es` / `1234` (usuario).
 
 ---
 
@@ -201,7 +209,7 @@ curl -X POST http://localhost:8080/auth/register -H 'Content-Type: application/j
 
 # Login: devuelve {"token": "eyJhbGciOiJIUzI1NiJ9..."}
 TOKEN=$(curl -s -X POST http://localhost:8080/auth/login -H 'Content-Type: application/json' \
-  -d '{"email":"ana@centro.es","password":"password123"}' | jq -r .token)
+  -d '{"email":"ana@centro.es","password":"1234"}' | jq -r .token)
 
 # Crear una incidencia (el autor sale del token)
 curl -X POST http://localhost:8080/incidencias -H "Authorization: Bearer $TOKEN" \
@@ -313,8 +321,9 @@ Regla práctica: *401 = no sé quién eres; 403 = sé quién eres, pero no puede
 ## 7. Comprobaciones realizadas
 
 El script `docs/comprobaciones.sh` automatiza las comprobaciones del enunciado
-con `curl` y `jq`. Crea los cuatro usuarios, promueve al primer administrador
-por SQL, y verifica **30 casos** (todos en verde en la última ejecución):
+con `curl` y `jq`. Usa los cuatro usuarios de prueba que crea el seed
+(contraseña `1234`) y verifica **30 casos** (todos en verde en la última
+ejecución):
 
 ```
 Resultado: 30 comprobaciones correctas, 0 fallidas
@@ -345,7 +354,7 @@ Casos cubiertos:
 # 1. Base de datos vacía (opcional, para empezar de cero)
 mysql -h127.0.0.1 -P3307 -uroot -p -e "DROP DATABASE IF EXISTS incidencias;"
 
-# 2. Backend arrancado
+# 2. Backend arrancado: al iniciar crea los usuarios de prueba (contraseña 1234)
 ./mvnw spring-boot:run
 
 # 3. En otra terminal
@@ -677,6 +686,7 @@ commits, sin publicar nada en GitHub.
 | **`@Transactional` en los servicios** | El mapeo a DTO del autor (`LAZY`) se hace dentro de la transacción; sin ella aparecería `LazyInitializationException`. |
 | **401 y 403 de Spring Security sin clases propias** | Es el comportamiento por defecto al usar `oauth2ResourceServer` (igual que en `MatriculasSpring`): menos código y el estándar de la plataforma; el frontend traduce el código de estado a un mensaje en español. |
 | **Frontend separado con `CorsConfig`** | Como en `MatriculasSpring`: permite abrir el frontend desde otro origen o directamente con `file://` en desarrollo. En producción se limitarían los orígenes. |
+| **Datos iniciales con hash BCrypt fijo** | El enunciado pide empezar con un administrador ya creado; un `CommandLineRunner` idempotente deja los cuatro usuarios de prueba listos en cada arranque, sin pasos manuales en la base de datos y sin contraseñas en claro (solo el hash de `1234`). |
 | **JWT en `localStorage`** | Es lo que pide la tarea y lo que se ve en clase. Es vulnerable a XSS; con una cookie `HttpOnly` se mitigaría, a cambio de más complejidad (CSRF, CORS con credenciales). |
 | **Sin H2 ni frameworks de test** | No se añaden tecnologías que no se hayan visto en clase; las comprobaciones del enunciado se hacen con `curl`/Postman y el script `docs/comprobaciones.sh`, y se documentan en el README. `mvnw test` sigue disponible para futuras pruebas. |
 
@@ -702,7 +712,7 @@ IncidenciasAPI/
 └── src/main/
     ├── java/ovh/emserv/incidenciasapi/
     │   ├── IncidenciasApiApplication.java
-    │   ├── config/       SecurityConfig, CorsConfig
+    │   ├── config/       SecurityConfig, CorsConfig, DatosIniciales
     │   ├── controller/   AuthController, IncidenciaController, UsuarioController
     │   ├── DTO/          Peticiones y respuestas de la API
     │   ├── entity/       Usuario, Incidencia, EstadoIncidencia
